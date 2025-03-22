@@ -62,32 +62,116 @@ export default function ChatInterface({ isDrawerOpen, onOpenDrawer }: ChatInterf
     }
   }, [isMounted])
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
 
-    // Add user message
-    const newMessages = [...messages, { role: "user", content: input }]
+    // Add user message to the UI immediately
+    const userMessage = { role: "user", content: input }
+    const newMessages = [...messages, userMessage]
     setMessages(newMessages)
-
-    // Simulate AI response (fixed for now)
-    setTimeout(() => {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: `[${activeAgent} Agent] ${$t('intro.greeting')}`,
-          languageCode: currentLanguage
-        },
-      ])
-    }, 500)
-
     setInput("")
+
+    try {
+      // Prepare the messages for the API call
+      const apiMessages = newMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+
+      // Start streaming response from the API
+      const response = await fetch('/api/web-site-agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          messages: apiMessages,
+          language: currentLanguage, // Send the current language to the API
+          agent: activeAgent // Include the active agent type
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      // Create a temporary variable to accumulate the response
+      let accumulatedResponse = ""
+      
+      // Add a loading message that we'll update as we get chunks
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "", 
+        languageCode: currentLanguage 
+      }])
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value)
+        
+        // Process the SSE format (data: {...}\n\n)
+        const lines = chunk.split('\n\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            
+            // Check if we've reached the end
+            if (data === '[DONE]') {
+              continue
+            }
+            
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.content) {
+                accumulatedResponse += parsed.content
+                
+                // Update the last message with the accumulated response
+                setMessages(prev => {
+                  const updatedMessages = [...prev]
+                  if (updatedMessages.length > 0) {
+                    updatedMessages[updatedMessages.length - 1] = {
+                      role: "assistant",
+                      content: accumulatedResponse,
+                      languageCode: currentLanguage
+                    }
+                  }
+                  return updatedMessages
+                })
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data', e)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error calling API:', error)
+      // Show error message to user
+      setMessages(prev => [
+        ...prev, 
+        { 
+          role: "assistant", 
+          content: `${$t('error.api')}`, 
+          languageCode: currentLanguage 
+        }
+      ])
+    }
   }
 
   const changeAgent = (agent: string) => {
     setActiveAgent(agent)
-    // Use translation for welcome message
+    // Reset messages with a welcome message in the current language
     setMessages([{ 
       role: "assistant", 
       content: $t('welcome'),

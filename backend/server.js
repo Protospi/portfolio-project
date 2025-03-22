@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { languageDetectionRouter } from './routes/languageDetection.js';
+import { webSiteAgentRouter } from './routes/webSiteAgent.js';
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +24,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api', languageDetectionRouter);
+app.use('/api', webSiteAgentRouter);
 
 // Default route
 app.get('/', (req, res) => {
