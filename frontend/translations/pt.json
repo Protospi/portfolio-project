@@ -39,5 +39,15 @@
   "language": {
     "select": "Selecionar Idioma",
     "detected": "Idioma detectado: {{language}}"
+  },
+  "agent": {
+    "website": {
+      "title": "Agente de Portfólio Web",
+      "clear": "Limpar Conversa",
+      "export": "Exportar Conversa"
+    }
+  },
+  "error": {
+    "api": "Desculpe, houve um erro ao conectar com o serviço. Por favor, tente novamente mais tarde."
   }
 } 

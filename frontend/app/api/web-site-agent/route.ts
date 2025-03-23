@@ -14,14 +14,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Extract messages and language from the request
-    const { messages, language, agent } = body;
+    // Extract messages, language, agent, and conversationId from the request
+    const { messages, language, agent, conversationId } = body;
 
     // Prepare the payload for the backend
     const backendPayload = {
       messages,
       language: language || 'en', // Default to English if no language specified
-      agent: agent || 'website' // Default to website agent if not specified
+      agent: agent || 'website', // Default to website agent if not specified
+      conversationId // Forward the conversation ID to the backend
     };
 
     // Forward the request to the backend and handle streaming

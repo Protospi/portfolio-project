@@ -39,5 +39,15 @@
   "language": {
     "select": "Select Language",
     "detected": "Detected language: {{language}}"
+  },
+  "agent": {
+    "website": {
+      "title": "Website Portfolio Agent",
+      "clear": "Clear Conversation",
+      "export": "Export Conversation"
+    }
+  },
+  "error": {
+    "api": "Sorry, there was an error connecting to the service. Please try again later."
   }
 } 

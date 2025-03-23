@@ -1,6 +1,7 @@
 import express from 'express';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import Message from '../models/messages.js';
 
 dotenv.config();
 
@@ -27,10 +28,33 @@ Also if the user ask to take control of the conversation, say that you are Pedro
 Make shure that the response is in the same language as the user's question.
 `
 
+// Helper function to save assistant's message to the database
+async function saveAssistantMessage(content, language, agent, conversationId) {
+  try {
+    const message = new Message({
+      sender: 'assistant',
+      conversationId: conversationId,
+      userName: 'website-visitor',
+      messageAuthor: 'assistant',
+      messageType: 'text',
+      text: content,
+      language: language || 'en',
+      agent: agent || 'website',
+      toolsCalled: [],
+      createdAt: new Date()
+    });
+
+    await message.save();
+    console.log('Assistant message saved to database');
+  } catch (error) {
+    console.error('Error saving assistant message to database:', error);
+  }
+}
+
 // POST endpoint for the website agent 
 router.post('/web-site-agent', async (req, res) => {
   try {
-    const { messages, language, agent } = req.body;
+    const { messages, language, agent, conversationId } = req.body;
     
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Valid messages array is required' });
@@ -47,7 +71,7 @@ router.post('/web-site-agent', async (req, res) => {
     // If OpenAI API key is not set or is the placeholder, use mock response
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
       console.log('Using mock response (no valid API key found)');
-      return mockResponse(res, finalMessages, language);
+      return mockResponse(res, finalMessages, language, agent, conversationId);
     }
 
     // Set up response for streaming
@@ -68,6 +92,11 @@ router.post('/web-site-agent', async (req, res) => {
 
     // If language is English or not specified, stream the response directly
     if (!language || language === 'en') {
+      // Save the English response to database before streaming
+      if (conversationId) {
+        await saveAssistantMessage(initialResponse, 'en', agent, conversationId);
+      }
+      
       streamTextResponse(res, initialResponse);
       return;
     }
@@ -85,12 +114,21 @@ router.post('/web-site-agent', async (req, res) => {
       stream: true,
     });
     
+    // For database saving, we need to accumulate the full response
+    let fullTranslatedResponse = '';
+    
     // Stream the translated response chunks to the client
     for await (const chunk of translationStream) {
       const content = chunk.choices[0]?.delta?.content || '';
       if (content) {
+        fullTranslatedResponse += content;
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
+    }
+    
+    // Save the full translated response to the database
+    if (conversationId) {
+      await saveAssistantMessage(fullTranslatedResponse, language, agent, conversationId);
     }
     
     res.write('data: [DONE]\n\n');
@@ -113,7 +151,7 @@ async function streamTextResponse(res, text) {
 }
 
 // Mock function for testing without OpenAI API key
-function mockResponse(res, messages, language) {
+function mockResponse(res, messages, language, agent, conversationId) {
   console.log('Mock website agent response');
   
   // Extract the last user message for context
@@ -158,6 +196,11 @@ function mockResponse(res, messages, language) {
     responseText = responses[3];
   } else {
     responseText = responses[0];
+  }
+  
+  // Save mock response to database if conversationId is provided
+  if (conversationId) {
+    saveAssistantMessage(responseText, language, agent, conversationId);
   }
   
   // Stream the mock response character by character
