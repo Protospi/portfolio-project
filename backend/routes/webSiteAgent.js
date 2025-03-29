@@ -29,10 +29,16 @@ Make shure that the response is in the same language as the user's question.
 `
 
 // Helper function to save assistant's message to the database
-async function saveAssistantMessage(content, language, agent, conversationId) {
+async function saveAssistantMessage(content, language, agent, conversationId, userId) {
   try {
+    if (!userId) {
+      console.error('Error saving assistant message: No userId provided');
+      return;
+    }
+    
     const message = new Message({
       sender: 'assistant',
+      userId: userId,
       conversationId: conversationId,
       userName: 'website-visitor',
       messageAuthor: 'assistant',
@@ -54,10 +60,14 @@ async function saveAssistantMessage(content, language, agent, conversationId) {
 // POST endpoint for the website agent 
 router.post('/web-site-agent', async (req, res) => {
   try {
-    const { messages, language, agent, conversationId } = req.body;
+    const { messages, language, agent, conversationId, userId } = req.body;
     
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Valid messages array is required' });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
     
     // Check if system message already exists, if not add it
@@ -71,7 +81,7 @@ router.post('/web-site-agent', async (req, res) => {
     // If OpenAI API key is not set or is the placeholder, use mock response
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
       console.log('Using mock response (no valid API key found)');
-      return mockResponse(res, finalMessages, language, agent, conversationId);
+      return mockResponse(res, finalMessages, language, agent, conversationId, userId);
     }
 
     // Set up response for streaming
@@ -94,7 +104,7 @@ router.post('/web-site-agent', async (req, res) => {
     if (!language || language === 'en') {
       // Save the English response to database before streaming
       if (conversationId) {
-        await saveAssistantMessage(initialResponse, 'en', agent, conversationId);
+        await saveAssistantMessage(initialResponse, 'en', agent, conversationId, userId);
       }
       
       streamTextResponse(res, initialResponse);
@@ -128,7 +138,7 @@ router.post('/web-site-agent', async (req, res) => {
     
     // Save the full translated response to the database
     if (conversationId) {
-      await saveAssistantMessage(fullTranslatedResponse, language, agent, conversationId);
+      await saveAssistantMessage(fullTranslatedResponse, language, agent, conversationId, userId);
     }
     
     res.write('data: [DONE]\n\n');
@@ -151,7 +161,7 @@ async function streamTextResponse(res, text) {
 }
 
 // Mock function for testing without OpenAI API key
-function mockResponse(res, messages, language, agent, conversationId) {
+function mockResponse(res, messages, language, agent, conversationId, userId) {
   console.log('Mock website agent response');
   
   // Extract the last user message for context
@@ -200,7 +210,7 @@ function mockResponse(res, messages, language, agent, conversationId) {
   
   // Save mock response to database if conversationId is provided
   if (conversationId) {
-    saveAssistantMessage(responseText, language, agent, conversationId);
+    saveAssistantMessage(responseText, language, agent, conversationId, userId);
   }
   
   // Stream the mock response character by character

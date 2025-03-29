@@ -102,6 +102,7 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
     if (!userInput.trim()) return
     
     try {
+      // Step 1: Detect the language
       const response = await fetch('/api/language-detection', {
         method: 'POST',
         headers: {
@@ -117,10 +118,37 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
       const data = await response.json()
       console.log('Language detection result:', data)
       
-      // Update the application's language based on the detection
-      if (data.language) {
-        setDetectedLanguage(data.language)
+      if (!data.language) {
+        throw new Error('No language detected')
       }
+      
+      // Step 2: Create a user with the detected language
+      const createUserResponse = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          language: data.language,
+          name: 'website-visitor'
+        }),
+      })
+      
+      if (!createUserResponse.ok) {
+        throw new Error(`Failed to create user: ${createUserResponse.status}`)
+      }
+      
+      const userData = await createUserResponse.json()
+      console.log('User created with ID:', userData._id)
+      
+      // Store the userId in localStorage for later use in messages
+      if (userData._id) {
+        localStorage.setItem('userId', userData._id)
+        console.log('User ID saved to localStorage:', userData._id)
+      }
+      
+      // Update the application's language based on the detection
+      setDetectedLanguage(data.language)
       
       // Start exit animation
       setIsExiting(true)
@@ -130,7 +158,7 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
         onComplete()
       }, 500)
     } catch (error) {
-      console.error('Error detecting language:', error)
+      console.error('Error in language detection flow:', error)
       // Still complete the animation even if there's an error
       setIsExiting(true)
       setTimeout(() => {

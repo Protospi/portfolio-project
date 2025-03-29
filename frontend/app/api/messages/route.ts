@@ -9,6 +9,14 @@ export async function POST(request: NextRequest) {
     // Get the message data from the request
     const messageData = await request.json();
     
+    // Ensure userId is provided
+    if (!messageData.userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+    
     // Send the message data to the backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
     const response = await fetch(`${backendUrl}/api/messages`, {
@@ -18,8 +26,9 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         sender: messageData.role === 'user' ? 'user' : 'assistant',
+        userId: messageData.userId,
         conversationId: messageData.conversationId,
-        userName: 'website-visitor', // Default user name for website visitors
+        userName: messageData.userName || 'website-visitor', // Default user name for website visitors
         messageAuthor: messageData.role,
         messageType: 'text',
         text: messageData.content,

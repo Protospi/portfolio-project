@@ -38,11 +38,19 @@ export default function WebsiteAgent() {
   // Save message to database
   const saveMessageToDatabase = async (message: ChatMessageType) => {
     try {
+      // Get userId from localStorage
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        console.error('Error: No userId found in localStorage');
+        return;
+      }
+      
       console.log('Saving message to database:', {
         conversationId,
         role: message.role,
         content: message.content.substring(0, 50) + '...',
-        languageCode: message.languageCode || currentLanguage
+        languageCode: message.languageCode || currentLanguage,
+        userId
       });
       
       const response = await fetch('/api/messages', {
@@ -51,6 +59,7 @@ export default function WebsiteAgent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId,
           conversationId,
           role: message.role,
           content: message.content,
@@ -124,6 +133,19 @@ export default function WebsiteAgent() {
     e.preventDefault()
     if (!input.trim()) return
 
+    // Get userId from localStorage
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      console.error('Error: No userId found in localStorage');
+      const errorMessage = { 
+        role: "assistant", 
+        content: "Error: User not found. Please refresh the page and try again.", 
+        languageCode: currentLanguage 
+      }
+      setMessages([...messages, errorMessage]);
+      return;
+    }
+
     // Add user message to the UI immediately
     const userMessage = { 
       role: "user", 
@@ -160,7 +182,8 @@ export default function WebsiteAgent() {
           messages: apiMessages,
           language: currentLanguage,
           agent: "website",
-          conversationId: conversationId
+          conversationId: conversationId,
+          userId: userId
         }),
       })
 

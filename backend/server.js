@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { languageDetectionRouter } from './routes/languageDetection.js';
 import { webSiteAgentRouter } from './routes/webSiteAgent.js';
 import { messagesRouter } from './routes/messages.js';
+import { usersRouter } from './routes/users.js';
 import connectDB from './config/database.js';
 
 // Load environment variables
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use('/api', languageDetectionRouter);
 app.use('/api', webSiteAgentRouter);
 app.use('/api', messagesRouter);
+app.use('/api', usersRouter);
 
 // Default route
 app.get('/', (req, res) => {

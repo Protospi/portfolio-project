@@ -14,15 +14,23 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!body.userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
     // Extract messages, language, agent, and conversationId from the request
-    const { messages, language, agent, conversationId } = body;
+    const { messages, language, agent, conversationId, userId } = body;
 
     // Prepare the payload for the backend
     const backendPayload = {
       messages,
       language: language || 'en', // Default to English if no language specified
       agent: agent || 'website', // Default to website agent if not specified
-      conversationId // Forward the conversation ID to the backend
+      conversationId, // Forward the conversation ID to the backend
+      userId // Forward the user ID to the backend
     };
 
     // Forward the request to the backend and handle streaming
